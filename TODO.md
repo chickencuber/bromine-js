@@ -1,0 +1,2 @@
+# TODOS
+- [ ] make it support more than one attribute in one signal
