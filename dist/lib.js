@@ -245,9 +245,9 @@ class HTMLString {
                 "source","track","wbr"
             ];
             str = str
-                .replaceAll("<>", "<data-fragment>")
-                .replaceAll("</>", "</data-fragment>")
-                .replaceAll("< />", "<data-fragment/>")
+                .replaceAll("<>", "<br-data-fragment>")
+                .replaceAll("</>", "</br-data-fragment>")
+                .replaceAll("< />", "<br-data-fragment/>")
                 .replaceAll(/<([a-zA-Z0-9-_]+)([^>]*)\/>/g, (match, tag, attrs) => {
                     if(voidElements.includes(tag.toLowerCase())) return match;
                     return `<${tag}${attrs}></${tag}>`;
@@ -341,6 +341,15 @@ class HTMLString {
         }
 }
 
-elt("data-fragment")(function() {
+elt("br-data-fragment")(function() {
     return html`<slot></slot>`
+})
+elt("br-if", {
+    value: v=>v=="false"?false: Boolean(v), 
+})(function({
+    props: {value},
+    state,
+}) {
+    const slot = state.useDerived(()=>value()?"then":"else", [value])
+    return html`<slot name="${slot}"></slot>`
 })

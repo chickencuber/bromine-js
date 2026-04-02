@@ -1,30 +1,24 @@
 elt("test-app")(function({state}) {
     const count = state.useSignal(0);
-    const count2 = state.useDerived(() => count()*2, [count])
 
     const cc = state.useSignal(0);
-
-    const color = state.useSignal("red");
 
     const i = setInterval(() => {
         cc(v=>++v)
     }, 1000)
     state.onUnmount(() => clearInterval(i))
+    state.useEffect(() => {
+        cc(v=>++v)
+    }, [count])
 
-    return html`
-        <>
+    return html`<>
         <my-counter count="${count}"/>
-        <br>
-        ${count2}
-        <br>
-        <my-counter count="${cc}" style="--color:${color}">
-        <br>
+        <br/>
         ${cc}
-        </my-counter>
-        <button onclick=${()=>color("red")}>red</button>
-        <button onclick=${()=>color("blue")}>blue</button>
-        </>
-        `
+        <br-if value="${state.useDerived(()=>cc()>=10, [cc])}">
+            <div slot="then">hello</div>
+        </br-if>
+        </>`;
 })
 
 elt("my-counter", {
@@ -33,14 +27,9 @@ elt("my-counter", {
     props: {
         count,
     },
-    state,
 }) {
-    const color = state.useStyle("--color") 
-    return html`
-        <>
-        <button style="background: ${color}" onclick=${() => count(v => ++v)}>${count}</button>
-        <slot></slot>
-        </>
-        `
+    return html`<>
+        <button onclick=${() => count(v => ++v)}>${count}</button>
+        </>`;
 })
 
