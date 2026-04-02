@@ -1,2 +1,2 @@
-<img src="./bromine.svg" width="100" height="100">
+<img src="./bromine.svg" width="500" height="500">
 # BromineJS
