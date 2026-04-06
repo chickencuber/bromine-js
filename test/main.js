@@ -1,35 +1,17 @@
+
 elt("test-app")(function({state}) {
-    const count = state.useSignal(0);
-
-    const cc = state.useSignal(0);
-
-    const i = setInterval(() => {
-        cc(v=>++v)
-    }, 1000)
-    state.onUnmount(() => clearInterval(i))
-    state.useEffect(() => {
-        cc(v=>++v)
-    }, [count])
-
+    const count = state.useSignal(0)
     return html`<>
         <my-counter count="${count}"/>
-        <br/>
-        ${cc}
-        <br-if value="${state.useDerived(()=>cc()>=10, [cc])}">
-            <div slot="then">hello</div>
-        </br-if>
         </>`;
 })
 
 elt("my-counter", {
-    count: Number,
+    count: v=>Number(v),
 })(function({
     props: {
         count,
     },
 }) {
-    return html`<>
-        <button onclick=${() => count(v => ++v)}>${count}</button>
-        </>`;
+    return html`<button on:click=${() => count(v=>++v)}>${count}</button>`;
 })
-

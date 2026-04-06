@@ -1,0 +1,8 @@
+{
+    "$schema": "./tsconfig",
+    "include": ["./globals.d.ts", "./test/*.js", "./dist/*.js"],
+    "compilerOptions": {
+        "checkJs": true,
+        "target": "esnext",
+    }
+}

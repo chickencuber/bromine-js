@@ -15,7 +15,7 @@ elt("my-counter", {
     const color = state.useStyle("--color") 
     return html`
         <>
-        <button style="background: ${color}" onclick=${() => count(v => ++v)}>${count}</button>
+        <button style="background: ${color}" on:click=${() => count(v => ++v)}>${count}</button>
         <slot></slot>
         </>
         `
@@ -37,6 +37,5 @@ and then it can just be used in html
     <script src="main.js"></script>
   </body>
 </html>
-
 ```
 

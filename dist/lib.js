@@ -1,5 +1,20 @@
-
+/**
+    * @param {any} v
+    */
+    //@ts-ignore
 const Any = v=>v;
+
+/**
+    * @param {any} v
+    */
+    //@ts-ignore
+const Bool = v=>v=="false"?false: Boolean(v);
+
+/**
+    * @param {any} v
+    */
+    //@ts-ignore
+const BoolExists = v=>v=="false"?false: v=="" ? true: Boolean(v);
 
 class CustomElt extends HTMLElement{
     constructor() {
@@ -28,24 +43,43 @@ class CustomElt extends HTMLElement{
             let value = force(d);
             /**
                 * @type {Signal<any>}
+                * @param {any} v
                 */
-                const s = (v) => {
-                    if(v === undefined) {
-                        return value;
+                //@ts-ignore
+            const s = (v) => {
+                if(v === undefined) {
+                    if(typeof value === "object") {
+                        return new Proxy(value, {
+                            get(t, name) {
+                                return t[name];
+                            },
+                            set(t, name, newv) {
+                                if(t[name] === newv) {
+                                    return;
+                                }
+                                t[name] = newv;
+                                for(const change of s.onChange) {
+                                    change(value);
+                                }
+                                return true;
+                            },
+                        })
                     }
-                    const old = value;
-                    if(typeof v === "function") {
-                        value = force(v(value));
-                    } else {
-                        value = force(v);
-                    }
-                    if(Object.is(value, old)) {
-                        return;
-                    }
-                    for(const change of s.onChange) {
-                        change(value);
-                    }
-                } 
+                    return value;
+                }
+                const old = value;
+                if(typeof v === "function") {
+                    value = force(v(value));
+                } else {
+                    value = force(v);
+                }
+                if(Object.is(value, old)) {
+                    return;
+                }
+                for(const change of s.onChange) {
+                    change(value);
+                }
+            } 
             s.onChange = []; 
             s.type = "signal";
             elt.signals.push(s);
@@ -59,10 +93,12 @@ class CustomElt extends HTMLElement{
     * @returns {DerivedFunction}
     */
     function createDerivedFn(elt, state) {
+        //@ts-ignore
         return function(fn, listen=[]) {
             const s = state.useSignal(0)
             state.useEffect(() => {
-                s(fn())
+                //@ts-ignore
+                s(fn.call(elt))
             }, listen)
             return s;
         }
@@ -71,15 +107,15 @@ class CustomElt extends HTMLElement{
 
 /**
     * @param {CustomElt} elt 
-    * @param {State} state 
+    * @param {State} _ 
     * @returns {EffectFunction}
     */
-    function createEffectFn(elt, state) {
+    function createEffectFn(elt, _) {
         return function(fn, listen=[]) {
-            fn()
+            fn.call(elt)()
             for(const l of listen) {
                 const d = () => {
-                    fn()
+                    fn.call(elt)
                 }
                 l.onChange.push(d)
                 elt.cleanups.push(() => {
@@ -126,87 +162,128 @@ class CustomElt extends HTMLElement{
         }
     }
 
-function elt(tag, properties = []) {
-    return function(fn) {
-        class NE extends CustomElt {
-            constructor() {
-                super();
-                this.attachShadow({ mode: 'open' });
-                /**
-                    * @type {State}
-                    */
-                    this.state = {}
-                this.props = {}
+/**
+    * @param {string} tag 
+    * @param {string[]|Record<string, any>} properties 
+    */
+    function elt(tag, properties = []) {
+        /**
+            * @param {()=>void} fn
+            */
+            return function(fn) {
+                class NE extends CustomElt {
+                    constructor() {
+                        super();
+                        this.attachShadow({ mode: 'open' });
+                        /**
+                            * @type {State}
+                            */
+                            //@ts-ignore
+                        this.state = {}
+                        this.props = {}
+                        this.onMount = [];
 
-                this.state.useSignal = createSignalFn(this);
-                this.state.useEffect = createEffectFn(this, this.state);
-                this.state.useDerived = createDerivedFn(this, this.state);
-                this.state.useChildren = createChildFn(this, this.state);
-                this.state.useStyle = createStyleFn(this, this.state);
-                this.state.onUnmount = (fn)=>this.cleanups.push(fn);
+                        this.state.useSignal = createSignalFn(this);
+                        this.state.useEffect = createEffectFn(this, this.state);
+                        this.state.useDerived = createDerivedFn(this, this.state);
+                        this.state.useChildren = createChildFn(this, this.state);
+                        this.state.useStyle = createStyleFn(this, this.state);
+                        this.state.onUnmount = (fn)=>this.cleanups.push(fn);
+                        this.state.onMount = (fn)=>this.onMount.push(fn);
 
-                if(Array.isArray(properties)) {
-                    for (const prop of properties) {
-                        this.props[prop] = this.state.useSignal(this.getAttribute(prop))
-                        this.props[prop].onChange.push((v) => {
-                            this.setAttribute(prop, v)
-                        })
+                        if(Array.isArray(properties)) {
+                            for (const prop of properties) {
+                                this.props[prop] = this.state.useSignal(this.getAttribute(prop))
+                                this.props[prop].onChange.push(
+                                    /**
+                                    * @param {string} v
+                                    */
+                                    (v) => {
+                                        this.setAttribute(prop, v)
+                                    })
+                            }
+                        } else {
+                            for (const prop of Object.keys(properties)) {
+                                if(Array.isArray(properties[prop])) {
+                                    this.setAttribute(prop, this.getAttribute(prop) || properties[prop][1])
+                                    this.props[prop] = this.state.useSignal(this.getAttribute(prop), properties[prop][0])
+                                } else {
+                                    this.props[prop] = this.state.useSignal(this.getAttribute(prop), properties[prop])
+                                }
+                                this.props[prop].onChange.push(
+                                    /**
+                                    * @param {string} v
+                                    */
+                                    (v) => {
+                                        this.setAttribute(prop, v)
+                                    })
+                            }
+                        }
                     }
-                } else {
-                    for (const prop of Object.keys(properties)) {
-                        this.props[prop] = this.state.useSignal(this.getAttribute(prop), properties[prop])
-                        this.props[prop].onChange.push((v) => {
-                            this.setAttribute(prop, v)
-                        })
+                    connectedCallback() {
+                        this.shadowRoot.append(fn.call(this.shadowRoot, {
+                            props: this.props, 
+                            state: this.state,
+                        }).toHTML(this));
+                        for(const callback of this.onMount) {
+                            callback.call(this.shadowRoot);
+                        }
                     }
+                    disconnectedCallback() {
+                        for (const cleanup of this.cleanups) {
+                            cleanup.call(this.shadowRoot);
+                        }
+                    }
+                    static get observedAttributes() { 
+                        if(Array.isArray(properties)) {
+                            return properties;
+                        } else {
+                            return Object.keys(properties)
+                        }
+                    }
+                    /**
+                        * @param {any} name 
+                        * @param {any} oldValue 
+                        * @param {any} newValue 
+                        */
+                        attributeChangedCallback(name, oldValue, newValue) {
+                            if(oldValue == newValue) return;
+                            this.props[name](newValue);
+                        }
                 }
+                customElements.define(tag, NE)
             }
-            connectedCallback() {
-                this.shadowRoot.append(fn.call(this, {
-                    props: this.props, 
-                    state: this.state,
-                }).toHTML(this));
-            }
-            disconnectedCallback() {
-                for (const cleanup of this.cleanups) {
-                    cleanup();
-                }
-            }
-            static get observedAttributes() { 
-                if(Array.isArray(properties)) {
-                    return properties;
-                } else {
-                    return Object.keys(properties)
-                }
-            }
-            attributeChangedCallback(name, oldValue, newValue) {
-                if(oldValue == newValue) return;
-                this.props[name](newValue);
-            }
-        }
-        customElements.define(tag, NE)
     }
-}
 
-function html(literalarr, ...args) {
-    return new HTMLString(literalarr, args)
-}
+/**
+    * @param {any[]} args 
+    * @param {TemplateStringsArray} literalarr 
+    */
+    function html(literalarr, ...args) {
+        return new HTMLString(literalarr, args)
+    }
 
 
+//@ts-ignore
 class HTMLString {
-    constructor(literalarr, args) {
-        /**
-            * @type {string[]}
-            */
-            this.literalarr = literalarr
-        /**
-            * @type {any[]}
-            */
-            this.args = args
-    }
+    /**
+        * @param {any[]} args 
+        * @param {TemplateStringsArray} literalarr 
+        */
+        constructor(literalarr, args) {
+            /**
+                * @type {TemplateStringsArray}
+                */
+                this.literalarr = literalarr
+            /**
+                * @type {any[]}
+                */
+                this.args = args
+        }
     /**
         * @returns {string}
         * @param {CustomElt} element 
+        * @param {any} t 
         */
         getString(element, t) {
             switch (typeof t) {
@@ -222,7 +299,7 @@ class HTMLString {
                         return `__signal__${element.signals.indexOf(t)}__` 
                     } else {
                         element.functions.push(t)
-                        return `"this.celt.functions[${element.functions.length-1}](event)"` 
+                        return `__function__${element.functions.length-1}__` 
                     }
                 default:
                     throw new Error("unexpected type in html literal")
@@ -257,6 +334,7 @@ class HTMLString {
             if(temp.children.length > 1) {
                 console.warn("any other children in the element will be ignored, consider using `<>…</>`")
             }
+            //@ts-ignore
             return this.crawl(element, temp.children[0]);
         }
     /**
@@ -264,9 +342,12 @@ class HTMLString {
         * @param {HTMLElement} p 
         */
         crawl(element, p) {
+            //@ts-ignore
             p.celt = element;
             const re = /__signal__(\d+)__/;
             const re2 = /__signal__\d+__/;
+            const re3 = /__function__(\d+)__/;
+            const re4 = /__function__\d+__/;
             for (const attr of p.attributes) {
                 const match = re.exec(attr.value);
                 if(match) {
@@ -277,15 +358,18 @@ class HTMLString {
                             //TASK(20260401-123729-782-n6-564): make it support more than one attribute in one signal
                             console.warn("attributes dont currently support more than one signal")
                         }
-                        function set(v) {
-                            if(split.length === 0) {
-                                p.setAttribute(attr.name, v)
-                            } else if(split.length === 1) {
-                                p.setAttribute(attr.name, split[0]+v)
-                            } else {
-                                p.setAttribute(attr.name, split.join(v))
+                        /**
+                            * @param {any} v 
+                            */
+                            function set(v) {
+                                if(split.length === 0) {
+                                    p.setAttribute(attr.name, v)
+                                } else if(split.length === 1) {
+                                    p.setAttribute(attr.name, split[0]+v)
+                                } else {
+                                    p.setAttribute(attr.name, split.join(v))
+                                }
                             }
-                        }
                         element.signals[idx].onChange.push((v)=>{
                             set(v)
                         })
@@ -293,6 +377,7 @@ class HTMLString {
                         if(split.length === 0) { //only a signal as the attribute, no other text mixed in
                                 const observer = new MutationObserver((mutations) => {
                                     for (const m of mutations) {
+                                        //@ts-ignore
                                         const newValue = m.target.getAttribute(m.attributeName);
                                         if(Object.is(newValue, element.signals[idx]())) {
                                             return;
@@ -307,6 +392,36 @@ class HTMLString {
                             });
                         }
                     }
+                } else {
+                    const match = re3.exec(attr.value);
+                    if(match) {
+                        const idx = parseInt(match[1])
+                        if(element.functions[idx]) {
+                            const split = attr.value.split(re4).filter(v=>v !== "");
+                            if(split.length > 2) {
+                                //TASK(20260401-123729-782-n6-564): make it support more than one attribute in one signal
+                                console.warn("attributes dont currently support more than one function")
+                            }
+                            if(attr.name.startsWith("on:")) {
+                                p.removeAttribute(attr.name);
+                                const re = /on:(\S*)/;
+                                const match = re.exec(attr.name);
+                                const event = match[1];
+                                p.addEventListener(event, function(...args) {
+                                    return element.functions[idx].call(this, ...args)
+                                })
+                            } else {
+                                const v = `this.celt.functions[${idx}]`
+                                if(split.length === 0) {
+                                    p.setAttribute(attr.name, v)
+                                } else if(split.length === 1) {
+                                    p.setAttribute(attr.name, split[0]+v)
+                                } else {
+                                    p.setAttribute(attr.name, split.join(v))
+                                }
+                            }
+                        }
+                    }
                 }
             }
             for(const t of Array.from(p.childNodes)) {
@@ -317,6 +432,7 @@ class HTMLString {
                     while ((match = re.exec(current.textContent)) !== null) {
                         const start = match.index;
 
+                        //@ts-ignore
                         const afterMatch = current.splitText(start);
 
                         const rest = afterMatch.splitText(match[0].length);
@@ -334,6 +450,7 @@ class HTMLString {
                         current = rest;
                     }
                 } else if (t.nodeType === Node.ELEMENT_NODE){
+                    //@ts-ignore
                     this.crawl(element, t)
                 }
             }
@@ -341,13 +458,17 @@ class HTMLString {
         }
 }
 
+//yes Im aware ts-ignore is bad practice, I don't care
+
 elt("br-data-fragment")(function() {
     return html`<slot></slot>`
 })
 elt("br-if", {
-    value: v=>v=="false"?false: Boolean(v), 
+    value: Bool, 
 })(function({
-    props: {value},
+    props: {
+        value
+    },
     state,
 }) {
     const slot = state.useDerived(()=>value()?"then":"else", [value])

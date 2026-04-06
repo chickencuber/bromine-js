@@ -1,9 +1,18 @@
 export {}
 declare global {
+    //@ts-ignore
     const Any: (v:any)=>any;
+    //@ts-ignore
+    const Bool: (v:any)=>boolean;
+    /**
+        * like Bool but if the value is "" its true
+        */
+    //@ts-ignore
+    const BoolExists: (v:any)=>boolean;
+    //@ts-ignore
     class HTMLString {}
 
-    function html(literalarr: string[], ...args: any[]): HTMLString;
+    function html(literalarr: TemplateStringsArray, ...args: any[]): HTMLString;
 
     type Args<P> = {
         props:MapProperties<P>,
@@ -16,16 +25,17 @@ declare global {
     }
 
     type MapProperties<P> =
-        P extends Record<string, (...args:any)=>any>
+        P extends Record<string, ((...args:any)=>any) | [(v:any)=>infer R, any]>
             ? { [K in keyof P as Replace<K & string, "-", "_">]: 
-                P[K] extends (...args:any)=>infer R ? Signal<R> : never
+                P[K] extends (v:any)=>infer R ? Signal<R> : 
+                P[K] extends [(v:any)=>infer R, any] ? Signal<R> : never
             }
                 : never;
 
 
                 function elt<
                 T extends string,
-                P extends Record<T, (...args:any)=>any>
+                P extends Record<T, ((v:any)=>any)|[(v:any)=>any, any]>
                 >(
                     tag: string,
                     properties?: P
@@ -44,18 +54,17 @@ declare global {
                         : S;
 
 
-                        type Signal<T> = (
-                            ((val: T)=>void) | 
-                                (()=>T) |
-                                ((fn: (v: T) => T)=>void)
-                        ) & {
+                        type Signal<T> = {
+                            (val: T):void,
+                            ():T,
+                            (fn: (v: T) => T):void
                             type:"signal",
                             onChange:((newv:T)=>void)[],
                         };
 
                             type SignalFunction = <T>(d:T, force?:(v:any)=>T) => Signal<T>
-                            type DerivedFunction = <T>(fn: ()=>T, dependencies?: Signal<any>[]) => Signal<T>
-                            type EffectFunction = <T>(fn: ()=>T, dependencies?: Signal<any>[]) => void 
+                            type DerivedFunction = <T>(fn: (this:HTMLElement)=>T, dependencies?: Signal<any>[]) => Signal<T>
+                            type EffectFunction = <T>(fn: (this:HTMLElement)=>T, dependencies?: Signal<any>[]) => void 
                             type ChildFunction = (opt?:{
                                 recursive?:boolean,
                                 watchtext?:boolean,
@@ -72,6 +81,7 @@ declare global {
                                 useEffect: EffectFunction,
                                 useChildren: ChildFunction,
                                 useStyle: StyleFunction,
-                                onUnmount: (fn:()=>void)=>void,
+                                onUnmount: (fn:(this: HTMLElement)=>void)=>void,
+                                onMount: (fn:(this: HTMLElement)=>void)=>void,
                             }
 }
