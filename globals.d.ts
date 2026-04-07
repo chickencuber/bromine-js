@@ -10,6 +10,8 @@ declare global {
     //@ts-ignore
     const BoolExists: (v:any)=>boolean;
     //@ts-ignore
+    const Func: (v:any)=>(...v:any[])=>any;
+    //@ts-ignore
     class HTMLString {}
 
     function html(literalarr: TemplateStringsArray, ...args: any[]): HTMLString;

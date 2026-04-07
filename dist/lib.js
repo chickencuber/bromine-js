@@ -16,6 +16,12 @@ const Bool = v=>v=="false"?false: Boolean(v);
     //@ts-ignore
 const BoolExists = v=>v=="false"?false: v=="" ? true: Boolean(v);
 
+/**
+    * @param {any} v
+    */
+    //@ts-ignore
+const Func = v=>eval(v);//yes I know dangerous
+
 class CustomElt extends HTMLElement{
     constructor() {
         super()

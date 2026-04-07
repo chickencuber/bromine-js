@@ -7,7 +7,7 @@ elt("test-app")(function({state}) {
 })
 
 elt("my-counter", {
-    count: v=>Number(v),
+    count: Number,
 })(function({
     props: {
         count,
