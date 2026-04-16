@@ -62,10 +62,14 @@ declare global {
                             (fn: (v: T) => T):void
                             type:"signal",
                             onChange:((newv:T)=>void)[],
+                            self:Signal<T>,
                         };
 
                             type SignalFunction = <T>(d:T, force?:(v:any)=>T) => Signal<T>
-                            type DerivedFunction = <T>(fn: (this:HTMLElement)=>T, dependencies?: Signal<any>[]) => Signal<T>
+                            type DerivedFunction = <T>(fn: (this:HTMLElement)=>T, dependencies?: Signal<any>[], opt?:{
+                                backprop?:(v:T)=>void,
+                                force?:(v:any)=>T,
+                            }) => Signal<T>
                             type EffectFunction = <T>(fn: (this:HTMLElement)=>T, dependencies?: Signal<any>[]) => void 
                             type ChildFunction = (opt?:{
                                 recursive?:boolean,

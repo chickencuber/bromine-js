@@ -20,7 +20,7 @@ const BoolExists = v=>v=="false"?false: v=="" ? true: Boolean(v);
     * @param {any} v
     */
     //@ts-ignore
-const Func = v=>eval(v);//yes I know dangerous
+const Func = v=>eval(v);//yes I know its dangerous
 
 class CustomElt extends HTMLElement{
     constructor() {
@@ -88,6 +88,7 @@ class CustomElt extends HTMLElement{
             } 
             s.onChange = []; 
             s.type = "signal";
+            s.self = s;
             elt.signals.push(s);
             return s;
         }
@@ -100,12 +101,16 @@ class CustomElt extends HTMLElement{
     */
     function createDerivedFn(elt, state) {
         //@ts-ignore
-        return function(fn, listen=[]) {
-            const s = state.useSignal(0)
+        return function(fn, listen=[], {backprop=()=>{}, force=Any}={}) {
+            const s = state.useSignal(0, force)
             state.useEffect(() => {
                 //@ts-ignore
                 s(fn.call(elt))
             }, listen)
+            state.useEffect(() => {
+                //@ts-ignore
+                backprop(s())
+            }, [s])
             return s;
         }
     }
@@ -118,7 +123,7 @@ class CustomElt extends HTMLElement{
     */
     function createEffectFn(elt, _) {
         return function(fn, listen=[]) {
-            fn.call(elt)()
+            fn.call(elt)
             for(const l of listen) {
                 const d = () => {
                     fn.call(elt)
@@ -227,17 +232,17 @@ class CustomElt extends HTMLElement{
                         }
                     }
                     connectedCallback() {
-                        this.shadowRoot.append(fn.call(this.shadowRoot, {
+                        this.shadowRoot.append(fn.call(this, {
                             props: this.props, 
                             state: this.state,
                         }).toHTML(this));
                         for(const callback of this.onMount) {
-                            callback.call(this.shadowRoot);
+                            callback.call(this);
                         }
                     }
                     disconnectedCallback() {
                         for (const cleanup of this.cleanups) {
-                            cleanup.call(this.shadowRoot);
+                            cleanup.call(this);
                         }
                     }
                     static get observedAttributes() { 
@@ -253,7 +258,15 @@ class CustomElt extends HTMLElement{
                         * @param {any} newValue 
                         */
                         attributeChangedCallback(name, oldValue, newValue) {
-                            if(oldValue == newValue) return;
+                            if(oldValue === newValue) return;
+                            if(newValue === null) {
+                                if(!Array.isArray(properties)) {
+                                    if(Array.isArray(properties[name])) {
+                                        newValue = properties[name][1]
+                                        this.setAttribute(name, newValue);
+                                    }
+                                }
+                            }
                             this.props[name](newValue);
                         }
                 }
@@ -302,7 +315,7 @@ class HTMLString {
                     return "undefined";
                 case "function":
                     if(t.type === "signal") {
-                        return `__signal__${element.signals.indexOf(t)}__` 
+                        return `__signal__${element.signals.indexOf(t.self)}__` 
                     } else {
                         element.functions.push(t)
                         return `__function__${element.functions.length-1}__` 
@@ -385,7 +398,8 @@ class HTMLString {
                                     for (const m of mutations) {
                                         //@ts-ignore
                                         const newValue = m.target.getAttribute(m.attributeName);
-                                        if(Object.is(newValue, element.signals[idx]())) {
+                                        const old = element.signals[idx]();
+                                        if(Object.is(newValue, old)) {
                                             return;
                                         }
                                         element.signals[idx](newValue)
