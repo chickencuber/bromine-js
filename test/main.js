@@ -1,8 +1,8 @@
-elt("test-app")(function({state}) {
+elt("test-app")(function({ state }) {
     const count = state.useSignal(0, Number)
-    const double = state.useDerived(()=>count()*2, [count], {
-        backprop: v=>{
-            count(v/2)
+    const double = state.useDerived(() => count() * 2, [count], {
+        backprop: v => {
+            count(v / 2)
         },
         force: Number,
     });
@@ -13,14 +13,26 @@ elt("test-app")(function({state}) {
         </>`;
 })
 
+function fakeRequest() {
+    return new Promise(r => setTimeout(() => r(), 10*1000)); //10 seconds
+}
+
 elt("my-counter", {
     count: Number,
     change: [Number, 1],
-})(function({
+})(function*({
     props: {
         count,
         change,
-    },
+    }
 }) {
-    return html`<button on:click=${() => count(v=>v+change())}>${count}</button>`;
+    yield html`<>
+            waiting...
+            <button on:click=${() => count(v => v + change())}>${count}</button>
+            </>`;
+    yield fakeRequest();
+    return html`<>
+        done
+        <button on:click=${() => count(v => v + change())}>${count}</button>
+        </>`;
 })
