@@ -9,12 +9,15 @@ elt("test-app")(function({ state }) {
     return html`<>
         <my-counter count=${count}/>
         <br/>
-        <my-counter count=${double} change=2/>
+        <br-if value="${state.useDerived(() => count() > 10, [count])}">
+        <my-counter count=${double} change=2 slot="then"/>
+        </br-if>
+
         </>`;
 })
 
 function fakeRequest() {
-    return new Promise(r => setTimeout(() => r(), 10*1000)); //10 seconds
+    return new Promise(r => setTimeout(() => r(), 10 * 1000)); //10 seconds
 }
 
 elt("my-counter", {
